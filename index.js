@@ -5,13 +5,13 @@ const { exit } = require('process')
 
 const WIDTH = 1080
 const HEIGHT = 1920
+//The maximum number of cycles to go trough the whole board.
+//Setting it to -1 will go until it finds a solution (can take long)
+const MaxIterationCount = -1
 sharp.cache(false); //wired bug + 0.5h
 //1080x1920 - 480 dpi (my device parameters)
 //adb shell input tap x y
 
-
-
-//console.log(solveLine([4,1], 10, ['U','U','B','U','B','B','U','U','B','U']))
 
 (async () => {
     await takeScreenshot()
@@ -201,39 +201,33 @@ function solve(data){
     const gridSize = rows.length
     console.log(`[i] Solving a ${gridSize}x${gridSize} grid`)
     const startTime = new Date().getTime()
+    let iterations = 1
 
     const matrix = []
     rows.forEach(row => {
-        //matrix.push(solveLine(row, gridSize, new Array(gridSize).fill('U')))
         matrix.push(solveLineWithCheating(row, gridSize, new Array(gridSize).fill('U')))
     });
 
-    //console.log(matrix)
-
-
     for (let x = 0; x < gridSize; x++) {
-        //const col = solveLine(cols[x], gridSize, matrix.map(r => r[x]))
         const col = solveLineWithCheating(cols[x], gridSize, matrix.map(r => r[x]))
         for (let y = 0; y < gridSize; y++) {
             matrix[y][x] = col[y]
         }
     }
-
-    //Change how deep it goes
-    for (let i = 0; i < 3; i++) {
+    debug("Pass 1")
+    
+    while (!(matrix.every(row => row.every(char => char == 'B' || char == 'E'))) && (MaxIterationCount == -1 || iterations < MaxIterationCount)) {
+        debug(`Pass ${iterations++}`)
         for (let y = 0; y < matrix.length; y++) {
-            //matrix[y] = solveLine(rows[y], gridSize, matrix[y])
             matrix[y] = solveLineWithCheating(rows[y], gridSize, matrix[y])
         }
     
         for (let x = 0; x < gridSize; x++) {
-            //const col = solveLine(cols[x], gridSize, matrix.map(r => r[x]))
             const col = solveLineWithCheating(cols[x], gridSize, matrix.map(r => r[x]))
             for (let y = 0; y < gridSize; y++) {
                 matrix[y][x] = col[y]
             }
         }
-        
     }
     
     //Fancy print of matrix
@@ -247,9 +241,9 @@ function solve(data){
     });
 
     if(complete){
-        console.log(`\x1b[32m[i] Finished solving in ${(new Date().getTime() - startTime) / 1000}s\x1b[0m`)
+        console.log(`\x1b[32m[i] Finished solving in ${(new Date().getTime() - startTime) / 1000}s with ${iterations} iterations\x1b[0m`)
     }else{
-        console.log(`[i] Incomplete solution in ${(new Date().getTime() - startTime) / 1000}s`)
+        console.log(`[i] Incomplete solution in ${(new Date().getTime() - startTime) / 1000}s with ${iterations} iterations`)
     }
     
     return {matrix: matrix, gridSize: gridSize}
@@ -264,7 +258,6 @@ function solveLineWithCheating(clues, gridSize, current) {
     }
     recFill(tips, 0, tips.length, 0)
 
-    //
     function recFill(arr, from, to, depth) {
         if(depth >= gridSize){ return; }
 
@@ -277,7 +270,6 @@ function solveLineWithCheating(clues, gridSize, current) {
         recFill(arr, from + halflen, to, depth+1)
     }
 
-    //TODO align wiht current
     const valid = []
     tips.forEach(tip => {
         if(arrayEquals(check(tip), clues)){
@@ -289,12 +281,10 @@ function solveLineWithCheating(clues, gridSize, current) {
             }
             if(good){
                 valid.push(tip)
-                //console.log(tip)
             }
         }
     });
-    //console.log(valid)
-    return valid.reduce((prev, curr) => {
+    const toReturn = valid.reduce((prev, curr) => {
         for (let i = 0; i < prev.length; i++) {
             if(prev[i] != curr[i]){
                 curr[i] = 'U'
@@ -302,6 +292,12 @@ function solveLineWithCheating(clues, gridSize, current) {
         }
         return curr
     }, valid[0])
+
+    if(toReturn == undefined){
+        console.log("[i] detected faulty read, continuing to solve withouth...")
+        return current
+    }
+    return toReturn
 
     function check(arr) {
         const clues = []
@@ -346,7 +342,38 @@ async function sendtaps(data){
     }
     const gridSizeInPixels = playArea.width / gridSize
 
-    const touches = []
+
+    for (let y = 0; y < matrix.length; y++) {
+        let prevblockindex = 0
+        let prevblock = false
+        for (let x = 0; x < matrix[y].length; x++) {
+            if(matrix[y][x] == 'B'){
+                if(!prevblock){
+                    prevblockindex = x
+                }
+
+                prevblock = true
+            } else {
+                
+                if(prevblock){
+                    const ypos = Math.floor(y*gridSizeInPixels + playArea.y + (gridSizeInPixels/2))
+                    const xpos1 = Math.floor(prevblockindex*gridSizeInPixels + playArea.x + (gridSizeInPixels/2))
+                    const xpos2 = Math.floor((x-1)*gridSizeInPixels + playArea.x + (gridSizeInPixels/2))
+                    await swipe(xpos1,ypos,xpos2,ypos)
+                }
+                prevblock = false
+            }
+        }
+        if(prevblock){
+            const ypos = Math.floor(y*gridSizeInPixels + playArea.y + (gridSizeInPixels/2))
+            const xpos1 = Math.floor(prevblockindex*gridSizeInPixels + playArea.x + (gridSizeInPixels/2))
+            const xpos2 = Math.floor((matrix[y].length -1) *gridSizeInPixels + playArea.x + (gridSizeInPixels/2))
+            await swipe(xpos1,ypos,xpos2,ypos)
+        }
+    }
+    //return clues
+
+    /*const touches = []
     for (let y = 0; y < matrix.length; y++) {
         for (let x = 0; x < matrix[y].length; x++) {
             if(matrix[y][x] == 'B'){
@@ -355,19 +382,34 @@ async function sendtaps(data){
                 touches.push([xpos, ypos])
             }
         }
-    }
+    }*/
 
-    for (let i = 0; i < touches.length; i++) {
+    /*for (let i = 0; i < touches.length; i++) {
         process.stdout.clearLine()
         process.stdout.cursorTo(0)
         process.stdout.write(`[i] Sending taps to phone: ${i+1}/${touches.length}`)
         const touch = touches[i];
         await tap(touch[0], touch[1])
-    }
+    }*/
 
     async function tap(x,y){
         await new Promise((resolve, reject) => {
             exec(`adb shell input tap ${x} ${y}`, (error, stdout, stderr) => {
+                if (error) {
+                    reject(error.message);
+                    return;
+                }
+                if (stderr) {
+                    reject(stderr)
+                    return;
+                }
+                resolve(stdout)
+            });
+        })
+    }
+    async function swipe(x1,y1, x2, y2){
+        await new Promise((resolve, reject) => {
+            exec(`adb shell input touchscreen swipe ${x1} ${y1} ${x2} ${y2} ${Math.floor((x2 - x1) * 1.6)}`, (error, stdout, stderr) => {
                 if (error) {
                     reject(error.message);
                     return;
