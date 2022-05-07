@@ -8,6 +8,9 @@ const HEIGHT = 1920
 //The maximum number of cycles to go trough the whole board.
 //Setting it to -1 will go until it finds a solution (can take long)
 const MaxIterationCount = -1
+//The speed which the swipe is inputted
+//You may need to increase if swipe skips blocks
+const SwipeSpeedMultiplier = 1.7
 sharp.cache(false); //wired bug + 0.5h
 //1080x1920 - 480 dpi (my device parameters)
 //adb shell input tap x y
@@ -198,6 +201,7 @@ async function recognise(){
 
 function solve(data){
     const {rows, cols} = data
+    console.log(rows, cols)
     const gridSize = rows.length
     console.log(`[i] Solving a ${gridSize}x${gridSize} grid`)
     const startTime = new Date().getTime()
@@ -250,24 +254,50 @@ function solve(data){
 
 }
 
+//console.log(solveLineWithCheating([1], 2, ['B','U']))
 function solveLineWithCheating(clues, gridSize, current) {
+    
+    //Already solved
+    if(!current.includes('U')){
+        return current
+    }
+
+    if(arrayEquals(clues, [1,1,1,2])){
+        console.log(current)
+    }
+    
     const tips = [] //2^n possible combinations
     
-    for (let i = 0; i < Math.pow(2, gridSize); i++) {
+    const unknownchars = current.reduce((prev, val) => prev + (val == 'U'), 0)
+    for (let i = 0; i < Math.pow(2, unknownchars); i++) {
         tips.push([])
     }
+    //console.log(unknownchars)
     recFill(tips, 0, tips.length, 0)
 
     function recFill(arr, from, to, depth) {
+        //console.log(depth, arr)
         if(depth >= gridSize){ return; }
 
+        const char = current[depth]
         const halflen = (to - from) / 2
-        for (let i = from; i < to; i++) {
-            arr[i].push((i < from + halflen) ? 'B' : 'E')
+
+        if(char == 'U'){
+            for (let i = from; i < to; i++) {
+                arr[i].push((i < from + halflen) ? 'B' : 'E')
+            }
+
+            recFill(arr, from, from + halflen, depth+1)
+            recFill(arr, from + halflen, to, depth+1)
+        }else{
+            for (let i = from; i < to; i++) {
+                arr[i].push(char)
+            }
+
+            recFill(arr, from, to, depth+1)
         }
 
-        recFill(arr, from, from + halflen, depth+1)
-        recFill(arr, from + halflen, to, depth+1)
+
     }
 
     const valid = []
@@ -409,7 +439,7 @@ async function sendtaps(data){
     }
     async function swipe(x1,y1, x2, y2){
         await new Promise((resolve, reject) => {
-            exec(`adb shell input touchscreen swipe ${x1} ${y1} ${x2} ${y2} ${Math.floor((x2 - x1) * 1.6)}`, (error, stdout, stderr) => {
+            exec(`adb shell input touchscreen swipe ${x1} ${y1} ${x2} ${y2} ${Math.floor((x2 - x1) * SwipeSpeedMultiplier)}`, (error, stdout, stderr) => {
                 if (error) {
                     reject(error.message);
                     return;
