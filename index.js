@@ -1,5 +1,6 @@
 const Tesseract = require('tesseract.js')
 const sharp = require('sharp')
+const prompt = require('prompt-sync')({sigint: true})
 const { exec } = require("child_process")
 const { exit } = require('process')
 
@@ -7,7 +8,7 @@ const WIDTH = 1080
 const HEIGHT = 1920
 //The maximum number of cycles to go trough the whole board.
 //Setting it to -1 will go until it finds a solution (can take long)
-const MaxIterationCount = -1
+const MaxIterationCount = 10
 //The speed which the swipe is inputted
 //You may need to increase if swipe skips blocks
 const SwipeSpeedMultiplier = 1.7
@@ -17,14 +18,41 @@ sharp.cache(false); //wired bug + 0.5h
 
 
 (async () => {
-    await takeScreenshot()
-    await edit()
-    const ret = await recognise()
-    const ret2 = await solve(ret)
-    await sendtaps(ret2)
+    let matrix
+    if(process.argv.includes("-m") || process.argv.includes("--manual")){
+        console.log("\x1b[33m[W] Using manual mode\x1b[0m")
+        matrix = promptManulaEntry()
+    } else{
+        await takeScreenshot()
+        await edit()
+        matrix = await recognise()
+    }
+    const solution = await solve(matrix)
+    await sendtaps(solution)
     exit(0)
 })();
 
+function promptManulaEntry(){
+    console.log("[i] Input the clues from top to bottom, left to right. Continue with empty line")
+    const cols = []
+    const rows = []
+    
+    let userprompt = prompt("col1: ")
+    let count = 1;
+    while(userprompt != ""){
+        count++
+        cols.push(userprompt.split(' ').map(val => parseInt(val)))
+        userprompt = prompt(`col${count}: `)
+    }
+    userprompt = prompt("row1: ")
+    count = 1;
+    while(userprompt != ""){
+        count++
+        rows.push(userprompt.split(' ').map(val => parseInt(val)))
+        userprompt = prompt(`row${count}: `)
+    }
+    return {rows: rows, cols: cols}
+}
 
 async function takeScreenshot(){
     await new Promise((resolve, reject) => {
@@ -63,19 +91,13 @@ async function recognise(){
     await worker.loadLanguage('eng')
     await worker.initialize("eng", Tesseract.OEM.TESSERACT_ONLY)
     await worker.setParameters({
-        //tessedit_pageseg_mode: Tesseract.PSM.SINGLE_WORD,
+        //tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
         tessedit_char_whitelist: "0123456789",
         preserve_interword_spaces: 1,
         user_defined_dpi: 480
     })
-    const topdata = await worker.recognize('top.png', {
-        //classify_bln_numeric_mode: 1
-        chop_same_distance: 1
-    })
-    const leftdata = await worker.recognize('left.png', {
-        //classify_bln_numeric_mode: 1
-        chop_same_distance: 1
-    })
+    const topdata = await worker.recognize('top.png', {})
+    const leftdata = await worker.recognize('left.png', {})
     await worker.terminate()
     
     const topchars = topdata.data.symbols
@@ -201,7 +223,6 @@ async function recognise(){
 
 function solve(data){
     const {rows, cols} = data
-    console.log(rows, cols)
     const gridSize = rows.length
     console.log(`[i] Solving a ${gridSize}x${gridSize} grid`)
     const startTime = new Date().getTime()
@@ -250,20 +271,15 @@ function solve(data){
         console.log(`[i] Incomplete solution in ${(new Date().getTime() - startTime) / 1000}s with ${iterations} iterations`)
     }
     
-    return {matrix: matrix, gridSize: gridSize}
+    return matrix
 
 }
 
 //console.log(solveLineWithCheating([1], 2, ['B','U']))
 function solveLineWithCheating(clues, gridSize, current) {
-    
     //Already solved
     if(!current.includes('U')){
         return current
-    }
-
-    if(arrayEquals(clues, [1,1,1,2])){
-        console.log(current)
     }
     
     const tips = [] //2^n possible combinations
@@ -272,7 +288,6 @@ function solveLineWithCheating(clues, gridSize, current) {
     for (let i = 0; i < Math.pow(2, unknownchars); i++) {
         tips.push([])
     }
-    //console.log(unknownchars)
     recFill(tips, 0, tips.length, 0)
 
     function recFill(arr, from, to, depth) {
@@ -324,6 +339,7 @@ function solveLineWithCheating(clues, gridSize, current) {
     }, valid[0])
 
     if(toReturn == undefined){
+        //May be because the puzzle is unsolvable, but highly unlikely
         console.log("[i] detected faulty read, continuing to solve withouth...")
         return current
     }
@@ -360,9 +376,8 @@ function solveLineWithCheating(clues, gridSize, current) {
     }
 }
 
-async function sendtaps(data){
-    const {matrix, gridSize} = data
-
+async function sendtaps(matrix){
+    const gridSize = matrix.length
 
     const playArea = {
         x: 224,

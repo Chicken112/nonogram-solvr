@@ -1,5 +1,5 @@
 {
-  "name": "androidappsolver",
+  "name": "nonogram-solvr",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -11,6 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "node-tesseract-ocr": "^2.2.1",
+    "prompt-sync": "^4.2.0",
     "sharp": "^0.30.4",
     "tesseract.js": "^2.1.5"
   }
