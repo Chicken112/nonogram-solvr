@@ -6,29 +6,36 @@ const { exit } = require('process')
 
 const WIDTH = 1080
 const HEIGHT = 1920
+const DPI = 480
 //The maximum number of cycles to go trough the whole board.
 //Setting it to -1 will go until it finds a solution (can take long)
 const MaxIterationCount = 10
 //The speed which the swipe is inputted
 //You may need to increase if swipe skips blocks
-const SwipeSpeedMultiplier = 1.7
+const SwipeSpeedMultiplier = 2.6
 sharp.cache(false); //wired bug + 0.5h
-//1080x1920 - 480 dpi (my device parameters)
-//adb shell input tap x y
 
 
 (async () => {
-    let matrix
-    if(process.argv.includes("-m") || process.argv.includes("--manual")){
-        console.log("\x1b[33m[W] Using manual mode\x1b[0m")
-        matrix = promptManulaEntry()
-    } else{
-        await takeScreenshot()
-        await edit()
-        matrix = await recognise()
+    while(true){
+        let matrix
+        if(process.argv.includes("-m") || process.argv.includes("--manual")){
+            console.log("\x1b[33m[W] Using manual mode\x1b[0m")
+            matrix = promptManulaEntry()
+        } else{
+            await takeScreenshot()
+            await edit()
+            matrix = await recognise()
+        }
+        const solution = await solve(matrix)
+        await sendtaps(solution)
+
+        await timeout(5000)
+        await tap(300, 1800)
+        await timeout(1000)
+        await tap(300, 1800)
+        await timeout(1000)
     }
-    const solution = await solve(matrix)
-    await sendtaps(solution)
     exit(0)
 })();
 
@@ -94,7 +101,7 @@ async function recognise(){
         //tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
         tessedit_char_whitelist: "0123456789",
         preserve_interword_spaces: 1,
-        user_defined_dpi: 480
+        user_defined_dpi: DPI
     })
     const topdata = await worker.recognize('top.png', {})
     const leftdata = await worker.recognize('left.png', {})
@@ -268,6 +275,7 @@ function solve(data){
     if(complete){
         console.log(`\x1b[32m[i] Finished solving in ${(new Date().getTime() - startTime) / 1000}s with ${iterations} iterations\x1b[0m`)
     }else{
+        exit(0)
         console.log(`[i] Incomplete solution in ${(new Date().getTime() - startTime) / 1000}s with ${iterations} iterations`)
     }
     
@@ -291,7 +299,6 @@ function solveLineWithCheating(clues, gridSize, current) {
     recFill(tips, 0, tips.length, 0)
 
     function recFill(arr, from, to, depth) {
-        //console.log(depth, arr)
         if(depth >= gridSize){ return; }
 
         const char = current[depth]
@@ -437,36 +444,40 @@ async function sendtaps(matrix){
         await tap(touch[0], touch[1])
     }*/
 
-    async function tap(x,y){
-        await new Promise((resolve, reject) => {
-            exec(`adb shell input tap ${x} ${y}`, (error, stdout, stderr) => {
-                if (error) {
-                    reject(error.message);
-                    return;
-                }
-                if (stderr) {
-                    reject(stderr)
-                    return;
-                }
-                resolve(stdout)
-            });
-        })
-    }
-    async function swipe(x1,y1, x2, y2){
-        await new Promise((resolve, reject) => {
-            exec(`adb shell input touchscreen swipe ${x1} ${y1} ${x2} ${y2} ${Math.floor((x2 - x1) * SwipeSpeedMultiplier)}`, (error, stdout, stderr) => {
-                if (error) {
-                    reject(error.message);
-                    return;
-                }
-                if (stderr) {
-                    reject(stderr)
-                    return;
-                }
-                resolve(stdout)
-            });
-        })
-    }
+}
+async function tap(x,y){
+    await new Promise((resolve, reject) => {
+        exec(`adb shell input tap ${x} ${y}`, (error, stdout, stderr) => {
+            if (error) {
+                reject(error.message);
+                return;
+            }
+            if (stderr) {
+                reject(stderr)
+                return;
+            }
+            resolve(stdout)
+        });
+    })
+}
+async function swipe(x1,y1, x2, y2){
+    await new Promise((resolve, reject) => {
+        exec(`adb shell input touchscreen swipe ${x1} ${y1} ${x2} ${y2} ${Math.floor((x2 - x1) * SwipeSpeedMultiplier)}`, (error, stdout, stderr) => {
+            if (error) {
+                reject(error.message);
+                return;
+            }
+            if (stderr) {
+                reject(stderr)
+                return;
+            }
+            resolve(stdout)
+        });
+    })
+}
+
+async function timeout(time){
+    return new Promise((res) => setTimeout(() => res(), time));
 }
 
 function debug(msg){
