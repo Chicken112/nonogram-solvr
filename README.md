@@ -3,7 +3,7 @@ A bot made for recognising, solving and inputting data for [this](https://play.g
 
 # How it works?
  - Screenshot with adb
- - Edited with sharp
+ - Edit it with sharp
  - Parsed and solved with custom code
  - Inputted back with adb with optimized swipe gestures
 
