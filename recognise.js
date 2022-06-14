@@ -1,6 +1,9 @@
 const Tesseract = require('tesseract.js')
+const sharp = require('sharp')
 const options = require('./options.json')
 const logger = require('./logger')
+
+sharp.cache(false)
 
 exports.preprocess = async () => {
     await sharp("temp/screenshot.png").extract({

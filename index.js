@@ -1,4 +1,3 @@
-const sharp = require('sharp')
 const prompt = require('prompt-sync')({sigint: true})
 const { exit } = require('process')
 
@@ -19,13 +18,11 @@ const HEIGHT = 1920
 //The speed which the swipe is inputted
 //You may need to increase if swipe skips blocks
 //const SwipeSpeedMultiplier = 2.6
-sharp.cache(false); //wired bug + 0.5h
 
 
 process.on('SIGINT', function() {
     process.exit(0);
 });
-
 
 start()
 async function start(){
