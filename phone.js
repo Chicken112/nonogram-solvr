@@ -57,7 +57,8 @@ exports.swipeBulk = async (inputs) => {
 
     for (let i = 0; i < inputs.length; i++) {
         const input = inputs[i];
-        str += `input touchscreen swipe ${input.x1} ${input.y1} ${input.x2} ${input.y2} ${Math.floor((input.x2 - input.x1) * options.swipespeedmultiplier)} && `
+        const speed = Math.floor((Math.max(input.x2 - input.x1, input.y2 - input.y1)) * options.swipespeedmultiplier)
+        str += `input touchscreen swipe ${input.x1} ${input.y1} ${input.x2} ${input.y2} ${speed} && `
     }
     str = str.slice(0, -3) + '"'
     //console.log(str)

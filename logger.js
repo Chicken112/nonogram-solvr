@@ -1,3 +1,5 @@
+const { exit } = require('process')
+
 let silent = false
 exports.silent = silent
 exports.message = (msg) => {

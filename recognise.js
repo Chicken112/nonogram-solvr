@@ -2,8 +2,23 @@ const Tesseract = require('tesseract.js')
 const options = require('./options.json')
 const logger = require('./logger')
 
-let worker
-exports.setup = async () => {
+exports.preprocess = async () => {
+    await sharp("temp/screenshot.png").extract({
+        left: 224,
+        top: 412,
+        width: 826,
+        height: 202
+    }).greyscale().threshold(230)
+    .toFile("temp/top.png")
+    await sharp("temp/screenshot.png").extract({
+        left: 45,
+        top: 624,
+        width: 170,
+        height: 825
+    }).greyscale().threshold(230)
+    .toFile("temp/left.png")
+}
+exports.recognise = async () => {
     worker = Tesseract.createWorker({})
     await worker.load()
     await worker.loadLanguage('eng')
@@ -14,14 +29,10 @@ exports.setup = async () => {
         preserve_interword_spaces: 1,
         user_defined_dpi: options.dpi
     })
-}
-
-
-exports.recognise = async () => {
     const topdata = await worker.recognize('temp/top.png', {})
     const leftdata = await worker.recognize('temp/left.png', {})
-    //await worker.terminate()
-    
+    await worker.terminate()    
+
     const topchars = topdata.data.symbols
     const leftchars = leftdata.data.symbols
     const left = {}
@@ -97,11 +108,11 @@ exports.recognise = async () => {
     const topLength = Object.keys(top).length
     const leftLength = Object.keys(left).length
     if(topLength != leftLength){
-        error("Row and column counts doesn't mach up")
+        logger.error("Row and column counts doesn't mach up")
         exit(1)
     }
     if(topLength == 0){
-        error("Couldn't detect grid")
+        logger.error("Couldn't detect grid")
         exit(1)
     }
 

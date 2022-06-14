@@ -1,4 +1,5 @@
 {
     "dpi": 480,
-    "swipespeedmultiplier": 2.6
+    "swipespeedmultiplier": 2.6,
+    "maxiterationcount": 10
 }
