@@ -39,9 +39,9 @@ exports.solve = (data) => {
         matrix.forEach(row => {
             row.forEach(char => {
                 if(char == 'U'){complete = false}
-                process.stdout.write((char == 'B' ? '☐' : (char == 'U' ? ' ' : 'X')) + ' ')
+                process.stdout.write((char == 'B' ? '\x1b[32m☐' : (char == 'U' ? ' ' : '\x1b[31mX')) + ' ')
             });
-            process.stdout.write('\n')
+            process.stdout.write('\n\x1b[0m')
         });
     }
 
