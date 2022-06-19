@@ -18,7 +18,7 @@ const HEIGHT = 1920
 //The speed which the swipe is inputted
 //You may need to increase if swipe skips blocks
 //const SwipeSpeedMultiplier = 2.6
-
+let solved = 0
 
 process.on('SIGINT', function() {
     process.exit(0);
@@ -29,15 +29,19 @@ async function start(){
     let matrix
     let auto = false
     if(process.argv.includes("-s") || process.argv.includes("--silent")){
-        logger.warn("Using silent mode")
+        //logger.warn("Using silent mode")
         logger.silent = true
     }
     if(process.argv.includes("-a") || process.argv.includes("--auto")){
-        logger.warn("Using auto mode")
+        if(!logger.silent){
+            logger.warn("Using auto mode")
+        }
         auto = true
     }
     if(process.argv.includes("-m") || process.argv.includes("--manual")){
-        logger.warn("Using manual mode")
+        if(!logger.silent){
+            logger.warn("Using manual mode")
+        }
         matrix = promptManulaEntry()
     } else if(process.argv.includes("-h") || process.argv.includes("--help")){
         console.log("\x1b[33m\x1b[1m - Nonogram solvR - ")
@@ -54,13 +58,19 @@ async function start(){
     }
     const solution = await solver.solve(matrix)
     await sendtaps(solution)
+    if(auto == true && logger.silent){
+        process.stdout.clearLine();  // clear current text
+        process.stdout.cursorTo(0);
+        process.stdout.write(`[i] Solved ${++solved} puzzles so far`);
+    }
+    logger.message("Solved puzzle")
 
     if(auto){
         //TODO Hard coded values for next and play buttons
         await timeout(5000)
         await phone.tap(300, 1800)
-        await timeout(750)
-        await phone.tap(300, 1800)
+        await timeout(2000) //750 for events
+        await phone.tap(300, 1600) //1600 for daily challanges, 1800 for events
         await timeout(1000)
         await start()
     }
