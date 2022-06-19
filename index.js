@@ -71,7 +71,7 @@ async function start(){
         await phone.tap(300, 1800)
         await timeout(2000) //750 for events
         await phone.tap(300, 1600) //1600 for daily challanges, 1800 for events
-        await timeout(1000)
+        await timeout(2000) //1000 for events
         await start()
     }
     exit(0)
