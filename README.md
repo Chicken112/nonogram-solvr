@@ -6,7 +6,8 @@ A bot made for recognising, solving and inputting data for [this](https://play.g
 # How it works?
  - Screenshot with adb
  - Edit it with sharp
- - Parsed and solved with custom code
+ - Parsed and interpreted with tesseract.js
+ - Solved with custom code
  - Inputted back with adb with optimized swipe gestures
 
 # Misc
